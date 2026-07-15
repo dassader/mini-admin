@@ -1,3 +1,4 @@
+import { serial as webUsbSerial } from 'web-serial-polyfill';
 import {
   FrameStreamParser,
   encodeFrame,
@@ -21,6 +22,11 @@ type SerialPortInfo = {
   usbProductId?: number;
 };
 
+type SerialPortFilter = {
+  usbVendorId?: number;
+  usbProductId?: number;
+};
+
 type BrowserSerialPort = {
   readable: ReadableStream<Uint8Array> | null;
   writable: WritableStream<Uint8Array> | null;
@@ -31,15 +37,32 @@ type BrowserSerialPort = {
 };
 
 type BrowserSerial = {
-  requestPort(options?: { filters?: Array<Record<string, number>> }): Promise<BrowserSerialPort>;
+  requestPort(options?: { filters?: SerialPortFilter[] }): Promise<BrowserSerialPort>;
   getPorts?(): Promise<BrowserSerialPort[]>;
 };
 
-declare global {
-  interface Navigator {
-    serial?: BrowserSerial;
-  }
-}
+type BrowserNavigator = Navigator & {
+  serial?: BrowserSerial;
+  usb?: unknown;
+  userAgentData?: { platform?: string };
+};
+
+export type SerialTransportKind = 'web-serial' | 'webusb';
+
+export type SerialRuntimeCapabilities = {
+  isSecureContext: boolean;
+  isAndroid: boolean;
+  hasNativeSerial: boolean;
+  hasWebUsb: boolean;
+};
+
+export type SerialSupportInfo = SerialRuntimeCapabilities & {
+  transport?: SerialTransportKind;
+};
+
+const MINI_BUS_USB_FILTERS: SerialPortFilter[] = [
+  { usbVendorId: 0x303a, usbProductId: 0x1001 }
+];
 
 export type SerialConnectionState =
   | 'unsupported'
@@ -51,6 +74,7 @@ export type SerialConnectionState =
 
 export type SerialPortDescriptor = {
   label: string;
+  transport: SerialTransportKind;
   vendorId?: number;
   productId?: number;
 };
@@ -78,14 +102,23 @@ export class WebSerialBus {
   }
 
   static supported() {
-    return Boolean(navigator.serial && window.isSecureContext);
+    return Boolean(WebSerialBus.supportInfo().transport);
+  }
+
+  static supportInfo(): SerialSupportInfo {
+    const capabilities = readSerialRuntimeCapabilities();
+    return {
+      ...capabilities,
+      transport: chooseSerialTransport(capabilities)
+    };
   }
 
   async connect() {
-    if (!WebSerialBus.supported() || !navigator.serial) {
+    const transport = resolveSerialTransport();
+    if (!transport) {
       this.options.onStateChange(
         'unsupported',
-        'Web Serial доступен только в Chrome/Edge в secure context.'
+        'USB-доступ недоступен. Откройте HTTPS-страницу в Chrome/Edge; на Android нужен Chrome с WebUSB и USB OTG.'
       );
       return;
     }
@@ -94,7 +127,7 @@ export class WebSerialBus {
     this.closing = false;
 
     try {
-      this.port = await navigator.serial.requestPort();
+      this.port = await transport.serial.requestPort({ filters: MINI_BUS_USB_FILTERS });
       await this.port.open({
         baudRate: 115200,
         dataBits: 8,
@@ -106,7 +139,8 @@ export class WebSerialBus {
 
       const info = this.port.getInfo?.() ?? {};
       this.options.onPortChange({
-        label: formatPortLabel(info),
+        label: formatPortLabel(info, transport.kind),
+        transport: transport.kind,
         vendorId: info.usbVendorId,
         productId: info.usbProductId
       });
@@ -120,10 +154,10 @@ export class WebSerialBus {
       this.options.onStateChange('connected');
       this.readLoop = this.readForever();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.options.onStateChange('error', message);
+      const message = describeConnectionError(error, transport.kind);
+      const state = isDevicePickerCancelled(error) ? 'disconnected' : 'error';
+      this.options.onStateChange(state, message);
       await this.releasePort();
-      throw error;
     }
   }
 
@@ -198,9 +232,59 @@ export class WebSerialBus {
   }
 }
 
-function formatPortLabel(info: SerialPortInfo): string {
-  if (!info.usbVendorId && !info.usbProductId) return 'USB Serial · 115200';
+export function chooseSerialTransport(
+  capabilities: SerialRuntimeCapabilities
+): SerialTransportKind | undefined {
+  if (!capabilities.isSecureContext) return undefined;
+  if (capabilities.isAndroid && capabilities.hasWebUsb) return 'webusb';
+  if (capabilities.hasNativeSerial) return 'web-serial';
+  if (capabilities.hasWebUsb) return 'webusb';
+  return undefined;
+}
+
+function readSerialRuntimeCapabilities(): SerialRuntimeCapabilities {
+  const browserNavigator = navigator as BrowserNavigator;
+  const platform = browserNavigator.userAgentData?.platform ?? '';
+  return {
+    isSecureContext: window.isSecureContext,
+    isAndroid: /android/i.test(`${platform} ${browserNavigator.userAgent}`),
+    hasNativeSerial: Boolean(browserNavigator.serial),
+    hasWebUsb: Boolean(browserNavigator.usb)
+  };
+}
+
+function resolveSerialTransport(): { kind: SerialTransportKind; serial: BrowserSerial } | undefined {
+  const browserNavigator = navigator as BrowserNavigator;
+  const kind = chooseSerialTransport(readSerialRuntimeCapabilities());
+  if (kind === 'web-serial' && browserNavigator.serial) {
+    return { kind, serial: browserNavigator.serial };
+  }
+  if (kind === 'webusb' && browserNavigator.usb) {
+    return { kind, serial: webUsbSerial as unknown as BrowserSerial };
+  }
+  return undefined;
+}
+
+function isDevicePickerCancelled(error: unknown) {
+  return error instanceof DOMException && error.name === 'NotFoundError';
+}
+
+function describeConnectionError(error: unknown, transport: SerialTransportKind) {
+  if (isDevicePickerCancelled(error)) return 'Выбор USB-устройства отменён.';
+  const message = error instanceof Error ? error.message : String(error);
+  if (transport === 'webusb' && /Unable to find interface with class/i.test(message)) {
+    return 'Плата найдена, но её USB CDC-интерфейс несовместим с WebUSB.';
+  }
+  if (transport === 'webusb' && /access|claim|permission|security/i.test(message)) {
+    return 'Android не дал доступ к USB-плате. Переподключите кабель и подтвердите разрешение Chrome.';
+  }
+  return message;
+}
+
+function formatPortLabel(info: SerialPortInfo, transport: SerialTransportKind): string {
+  const transportLabel = transport === 'webusb' ? 'WebUSB' : 'Web Serial';
+  if (!info.usbVendorId && !info.usbProductId) return `${transportLabel} · 115200`;
   const vendor = info.usbVendorId?.toString(16).padStart(4, '0').toUpperCase() ?? '----';
   const product = info.usbProductId?.toString(16).padStart(4, '0').toUpperCase() ?? '----';
-  return `USB ${vendor}:${product} · 115200`;
+  return `USB ${vendor}:${product} · ${transportLabel} · 115200`;
 }

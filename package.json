@@ -15,7 +15,8 @@
   "dependencies": {
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "web-serial-polyfill": "1.0.15"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

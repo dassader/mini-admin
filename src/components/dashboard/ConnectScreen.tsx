@@ -1,5 +1,5 @@
 import { CircuitBoard, LoaderCircle, Usb } from 'lucide-react';
-import type { SerialConnectionState } from '../../hardware/web-serial';
+import { WebSerialBus, type SerialConnectionState } from '../../hardware/web-serial';
 
 type ConnectScreenProps = {
   connection: SerialConnectionState;
@@ -10,6 +10,8 @@ type ConnectScreenProps = {
 export function ConnectScreen({ connection, error, connect }: ConnectScreenProps) {
   const connecting = connection === 'connecting';
   const unsupported = connection === 'unsupported';
+  const support = WebSerialBus.supportInfo();
+  const androidWebUsb = support.isAndroid && support.transport === 'webusb';
 
   return (
     <main className="connect-screen">
@@ -38,13 +40,19 @@ export function ConnectScreen({ connection, error, connect }: ConnectScreenProps
         </button>
         {(error || unsupported) && (
           <p className="connect-error" role="alert">
-            {error ?? 'Web Serial недоступен. Откройте приложение в Chrome.'}
+            {error ??
+              'USB-доступ недоступен. Откройте HTTPS-версию приложения в Chrome; на Android требуется USB OTG.'}
+          </p>
+        )}
+        {androidWebUsb && !error && (
+          <p className="connect-device-hint">
+            Подключите плату кабелем данных через USB OTG и подтвердите доступ к USB для Chrome.
           </p>
         )}
       </div>
 
       <footer className="connect-screen__footer">
-        <p>Chrome · Web Serial</p>
+        <p>{androidWebUsb ? 'Android Chrome · USB OTG · WebUSB' : 'Chrome · Web Serial'}</p>
       </footer>
     </main>
   );
