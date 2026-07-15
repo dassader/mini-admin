@@ -12,7 +12,6 @@ import { NumericSensorCard } from './components/dashboard/NumericSensorCard';
 import { TemperatureLightCard } from './components/dashboard/TemperatureLightCard';
 import { TimerCard } from './components/dashboard/TimerCard';
 import { TimerCreateCard } from './components/dashboard/TimerCreateCard';
-import { ZigBeeLogCard } from './components/dashboard/ZigBeeLogCard';
 import { useMiniBusLab } from './hardware/use-mini-bus-lab';
 
 export function App() {
@@ -108,8 +107,7 @@ export function App() {
           </div>
         </section>
 
-        <ZigBeeLogCard events={lab.events} />
-        <EventsCard events={lab.events} />
+        <EventsCard events={lab.events} getBusLog={lab.getBusLog} />
       </main>
     </div>
   );

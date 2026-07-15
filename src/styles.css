@@ -984,103 +984,6 @@ button:disabled {
   font-size: 12px;
 }
 
-.zigbee-log-card {
-  margin-top: 16px;
-}
-
-.zigbee-log-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.zigbee-log-toolbar > span {
-  align-self: center;
-  color: var(--muted);
-  font-size: 12px;
-  text-align: right;
-}
-
-.zigbee-log-list {
-  max-height: 520px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.zigbee-log-row {
-  border-bottom: 1px solid var(--border);
-}
-
-.zigbee-log-row:last-child {
-  border-bottom: 0;
-}
-
-.zigbee-log-row summary {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px 10px;
-  min-height: 48px;
-  padding: 8px 10px;
-  cursor: pointer;
-  list-style-position: inside;
-}
-
-.zigbee-log-row summary time,
-.zigbee-log-row summary strong,
-.zigbee-log-row summary .direction {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
-}
-
-.zigbee-log-row summary time {
-  color: var(--muted);
-}
-
-.zigbee-log-row summary strong {
-  overflow: hidden;
-  color: var(--blue);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zigbee-log-row summary > span:last-child {
-  grid-column: 1 / -1;
-  overflow: hidden;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zigbee-log-row dl {
-  margin: 0;
-  padding: 8px 12px 12px;
-  border-top: 1px solid var(--border);
-  background: #f9fbfe;
-}
-
-.zigbee-log-row dl > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.25fr) minmax(0, 1fr);
-  gap: 12px;
-  padding: 4px 0;
-}
-
-.zigbee-log-row dt {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.zigbee-log-row dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
-}
-
 .events-card {
   margin-top: 16px;
 }
@@ -1385,25 +1288,6 @@ button:disabled {
   .events-toolbar {
     grid-template-columns: 180px minmax(200px, 1fr) auto auto;
     align-items: center;
-  }
-
-  .zigbee-log-toolbar {
-    grid-template-columns: minmax(240px, 1fr) auto auto;
-    align-items: center;
-  }
-
-  .zigbee-log-toolbar .outline-button {
-    padding-inline: 16px;
-  }
-
-  .zigbee-log-row summary {
-    grid-template-columns: 112px 38px minmax(150px, auto) minmax(0, 1fr);
-    gap: 12px;
-    padding-inline: 12px;
-  }
-
-  .zigbee-log-row summary > span:last-child {
-    grid-column: auto;
   }
 
   .events-download {

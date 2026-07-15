@@ -117,6 +117,16 @@ export type LabEvent = ParsedFrame & {
   category: 'system' | 'network' | 'entity' | 'automation' | 'error' | 'raw';
 };
 
+export type BusLogFrame = Pick<
+  ParsedFrame,
+  'at' | 'direction' | 'destination' | 'groupId' | 'typeId' | 'payload' | 'bytes'
+>;
+
+export type BusLogSnapshot = {
+  frames: BusLogFrame[];
+  truncated: boolean;
+};
+
 export type TrafficStats = {
   rxPackets: number;
   txPackets: number;
@@ -200,6 +210,8 @@ export const LAB_ZONES = [
 const GROUP_LIGHT_ID = '0x06279c245ca1e601';
 const SCAN_INTERVAL_MS = 6000;
 const EVENT_LIMIT = 2000;
+const BUS_LOG_LIMIT = 20000;
+const BUS_LOG_TRIM_SIZE = 2000;
 const OTA_RESPONSE_TIMEOUT_MS = 30000;
 const OTA_REBOOT_DELAY_MS = 500;
 const OTA_REBOOT_REASON = 0x03;
@@ -242,6 +254,8 @@ export function useMiniBusLab() {
   const otaWaiters = useRef(new Set<OtaResponseWaiter>());
   const firmwareInFlight = useRef(false);
   const eventCounter = useRef(0);
+  const busLogRef = useRef<BusLogFrame[]>([]);
+  const busLogTruncatedRef = useRef(false);
   const requestedEntityState = useRef(new Set<string>());
   const requestedZigBeeDevice = useRef(new Set<string>());
   const requestedZigBeeClusters = useRef(new Set<string>());
@@ -249,6 +263,21 @@ export function useMiniBusLab() {
   const buttonSequences = useRef(new Map<string, number>());
 
   const appendEvent = useCallback((frame: ParsedFrame) => {
+    const busLog = busLogRef.current;
+    busLog.push({
+      at: frame.at,
+      direction: frame.direction,
+      destination: frame.destination,
+      groupId: frame.groupId,
+      typeId: frame.typeId,
+      payload: new Uint8Array(frame.payload),
+      bytes: frame.bytes
+    });
+    if (busLog.length > BUS_LOG_LIMIT) {
+      busLog.splice(0, BUS_LOG_TRIM_SIZE);
+      busLogTruncatedRef.current = true;
+    }
+
     const isOtaChunk =
       frame.groupId === Group.Ota &&
       (frame.typeId === OtaType.ChunkRequest || frame.typeId === OtaType.ChunkResponse);
@@ -278,6 +307,14 @@ export function useMiniBusLab() {
     setEvents((current) => [event, ...current].slice(0, EVENT_LIMIT));
     setStats(nextStats);
   }, []);
+
+  const getBusLog = useCallback(
+    (): BusLogSnapshot => ({
+      frames: busLogRef.current.slice(),
+      truncated: busLogTruncatedRef.current
+    }),
+    []
+  );
 
   const queueSend = useCallback(
     (
@@ -1242,6 +1279,7 @@ export function useMiniBusLab() {
     entities,
     timers,
     events,
+    getBusLog,
     stats,
     firmwareUpdate,
     lastScanAt,
