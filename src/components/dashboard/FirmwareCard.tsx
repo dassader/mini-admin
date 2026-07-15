@@ -92,10 +92,10 @@ function FirmwareDialog({
   clear: () => void;
   activate: (board: string) => Promise<void>;
 }) {
-  const activateUploadedFirmware = async () => {
+  const rebootWithUploadedFirmware = async () => {
     if (!progress.board) return;
     const confirmed = window.confirm(
-      `Применить загруженную прошивку на ${progress.board}? Плата перезагрузится.`
+      `Перезагрузить устройство ${progress.board}, чтобы запустить загруженную прошивку?`
     );
     if (!confirmed) return;
     await activate(progress.board);
@@ -135,19 +135,21 @@ function FirmwareDialog({
           )}
           {!busy && (
             <div className="firmware-actions">
-              {progress.phase === 'done' && progress.board && (
+              {progress.phase === 'done' && progress.board ? (
                 <button
-                  className="outline-button firmware-activate"
+                  className="outline-button firmware-reboot"
                   type="button"
-                  onClick={() => void activateUploadedFirmware()}
+                  data-testid="firmware-reboot"
+                  onClick={() => void rebootWithUploadedFirmware()}
                 >
                   <Power size={17} aria-hidden="true" />
-                  Применить прошивку
+                  Перезагрузить устройство
+                </button>
+              ) : (
+                <button className="outline-button firmware-close" type="button" onClick={clear}>
+                  OK
                 </button>
               )}
-              <button className="outline-button firmware-close" type="button" onClick={clear}>
-                OK
-              </button>
             </div>
           )}
         </div>

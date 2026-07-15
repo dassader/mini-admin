@@ -813,7 +813,7 @@ button:disabled {
   padding-inline: 18px;
 }
 
-.firmware-activate {
+.firmware-reboot {
   flex: 1 1 auto;
   border-color: var(--blue);
   background: var(--blue);
@@ -825,7 +825,7 @@ button:disabled {
   min-width: 72px;
 }
 
-.firmware-activate:hover:not(:disabled) {
+.firmware-reboot:hover:not(:disabled) {
   background: var(--blue-dark);
   color: #fff;
 }
